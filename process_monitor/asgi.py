@@ -12,13 +12,18 @@ import os
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
-import monitor_app.routing 
+# Importing with a delay
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'process_monitor.settings')
 
-# application = get_asgi_application()
+# Initialize Django ASGI application early
+django_asgi_app = get_asgi_application()
+
+# Import routing AFTER Django setup
+import monitor_app.routing  
+
 application = ProtocolTypeRouter({
-    "http": get_asgi_application(),
+    "http": django_asgi_app,
     "websocket": AuthMiddlewareStack(
         URLRouter(
             monitor_app.routing.websocket_urlpatterns

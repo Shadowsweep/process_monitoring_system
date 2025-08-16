@@ -1,44 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Host Monitor</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #fff;
+        color: #000;
+        padding: 20px;
+    }
+
+    h2 {
+        border-bottom: 2px solid #000;
+        padding-bottom: 5px;
+    }
+
+    #hosts-list button {
+        background-color: #000;
+        color: #fff;
+        border: none;
+        padding: 10px 15px;
+        margin: 5px 0;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: all 0.2s ease;
+    }
+
+    #hosts-list button:hover {
+        background-color: #555;
+    }
+
+    .toggle-btn {
+        background-color: #000;
+        color: #fff;
+        border: none;
+        padding: 8px 12px;
+        margin: 10px 5px;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: all 0.2s ease;
+    }
+
+    .toggle-btn:hover {
+        background-color: #555;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        margin-bottom: 20px;
+    }
+
+    table, th, td {
+        border: 1px solid #000;
+    }
+
+    th, td {
+        padding: 8px;
+        text-align: left;
+    }
+
+    tr.subprocess-row {
+        display: none;
+        background-color: #f2f2f2;
+    }
+
+    tr:hover {
+        background-color: #e0e0e0;
+    }
+
+    .expand-btn {
+        cursor: pointer;
+        font-weight: bold;
+        margin-right: 5px;
+    }
+
+</style>
+</head>
+<body>
+
 <h2>Host Monitor</h2>
 <ul id="hosts-list">
-    <!-- Populate dynamically from API or Django template -->
-    <li><button onclick="viewHost('LAPTOP-7UTNLTAQ')">LAPTOP-7UTNLTAQ</button></li>
+    <li><button onclick="selectHost('LAPTOP-7UTNLTAQ')">LAPTOP-7UTNLTAQ</button></li>
 </ul>
 
-<h3>System Info</h3>
-<div id="system-info"></div>
+<div id="host-controls" class="hidden">
+    <button class="toggle-btn" onclick="toggleSection('system-section')">System Details</button>
+    <button class="toggle-btn" onclick="toggleSection('process-section')">Process Details</button>
+</div>
 
-<h3>Processes</h3>
-<div id="processes"></div>
+<div id="system-section" class="hidden">
+    <h3>System Info</h3>
+    <table>
+        <tbody id="system-info"></tbody>
+    </table>
+</div>
+
+<div id="process-section" class="hidden">
+    <h3>Processes</h3>
+    <table>
+        <thead>
+            <tr>
+                <th></th>
+                <th>PID</th>
+                <th>Name</th>
+                <th>CPU %</th>
+                <th>Memory MB</th>
+            </tr>
+        </thead>
+        <tbody id="processes"></tbody>
+    </table>
+</div>
 
 <script>
 let socket = new WebSocket("ws://127.0.0.1:8000/ws/host-monitor/");
+let selectedHost = null;
 
 socket.onopen = () => console.log("WebSocket connected");
+
 socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if(data.error){
         alert(data.error);
         return;
     }
+
+    // Update System Info dynamically
     if(data.system_info){
-        let si = data.system_info;
+        const si = data.system_info;
         document.getElementById('system-info').innerHTML = `
-            OS: ${si.os_name} <br>
-            Processor: ${si.processor} <br>
-            Cores/Threads: ${si.num_cores}/${si.num_threads} <br>
-            RAM: ${si.ram_used_gb}/${si.ram_total_gb} GB <br>
-            Storage: ${si.storage_used_gb}/${si.storage_total_gb} GB
+            <tr><td>OS</td><td>${si.os_name}</td></tr>
+            <tr><td>Processor</td><td>${si.processor}</td></tr>
+            <tr><td>Cores/Threads</td><td>${si.num_cores}/${si.num_threads}</td></tr>
+            <tr><td>RAM</td><td>${si.ram_used_gb}/${si.ram_total_gb} GB</td></tr>
+            <tr><td>Storage</td><td>${si.storage_used_gb}/${si.storage_total_gb} GB</td></tr>
         `;
     }
+
+    // Update Processes dynamically
     if(data.processes){
-        let procs = data.processes.map(p => `
-            PID: ${p.pid}, Name: ${p.name}, CPU: ${p.cpu_percent}%, Memory: ${p.memory_mb}MB
-        `).join('<br>');
-        document.getElementById('processes').innerHTML = procs;
+        const tbody = document.getElementById('processes');
+        tbody.innerHTML = "";
+        data.processes.forEach(proc => {
+            const pid = proc.pid;
+            const rowId = `proc-${pid}`;
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td class="expand-btn" onclick="toggleSubprocess('${rowId}')">&#9654;</td>
+                <td>${pid}</td>
+                <td>${proc.name}</td>
+                <td>${proc.cpu_percent}%</td>
+                <td>${proc.memory_mb}</td>
+            `;
+            tbody.appendChild(tr);
+
+            const subTr = document.createElement("tr");
+            subTr.id = rowId;
+            subTr.className = "subprocess-row";
+            subTr.innerHTML = `<td colspan="5">No subprocesses available</td>`;
+            tbody.appendChild(subTr);
+        });
     }
 }
 
-function viewHost(hostname){
+// Toggle visibility of sections
+function toggleSection(sectionId){
+    const section = document.getElementById(sectionId);
+    if(section.classList.contains('hidden')){
+        section.classList.remove('hidden');
+    } else {
+        section.classList.add('hidden');
+    }
+}
+
+// Expand/Collapse subprocesses
+function toggleSubprocess(rowId){
+    const row = document.getElementById(rowId);
+    row.style.display = row.style.display === "table-row" ? "none" : "table-row";
+}
+
+// Select a host and show control buttons
+function selectHost(hostname){
+    selectedHost = hostname;
+    document.getElementById('host-controls').classList.remove('hidden');
     socket.send(JSON.stringify({"hostname": hostname}));
 }
 </script>
+
+</body>
+</html>
