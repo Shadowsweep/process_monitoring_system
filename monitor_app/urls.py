@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import ProcessDataAgentView, LatestProcessDataFrontendView, ListHostsView , SystemInfoFrontendView , ProcessMonitorView ,sockets_test , host_monitor_view
+from .views import ProcessDataAgentView, LatestProcessDataFrontendView, ListHostsView , SystemInfoFrontendView , ProcessMonitorView ,sockets_test , host_monitor_view 
+from .views import sockets_test, host_monitor_view
 from . import views
 
 urlpatterns = [
@@ -8,8 +9,10 @@ urlpatterns = [
     path('frontend/processes/<str:hostname>/', LatestProcessDataFrontendView.as_view(), name='frontend-processes-by-hostname'),
     path('frontend/system-info/<str:hostname>/', SystemInfoFrontendView.as_view(), name='frontend-system-info'),
     path('', ProcessMonitorView.as_view(), name='process-monitor'),
-    #   Trying Web sockets
-    path("sockets_test/", sockets_test, name="sockets_test"),
-     path("host-monitor/", host_monitor_view, name="host_monitor"),
+    
+    # implementation of the sockets test view
+    # path('sockets_test/', sockets_test, name='sockets-test'),
+    path('host-monitor/', views.host_monitor_view, name='host-monitor'),
+    
 
 ]

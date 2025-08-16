@@ -32,6 +32,10 @@
         background-color: #555;
     }
 
+    #hosts-list button.active {
+        background-color: #007bff;
+    }
+
     .toggle-btn {
         background-color: #000;
         color: #fff;
@@ -82,11 +86,44 @@
         margin-right: 5px;
     }
 
+    .status {
+        padding: 5px;
+        border-radius: 3px;
+        font-weight: bold;
+        display: inline-block;
+        min-width: 100px;
+        text-align: center;
+    }
+
+    .status.connected {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status.disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .status.connecting {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .last-update {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
 </style>
 </head>
 <body>
 
 <h2>Host Monitor</h2>
+
+<div class="status" id="connection-status">Disconnected</div>
+<div class="last-update" id="last-update"></div>
+
 <ul id="hosts-list">
     <li><button onclick="selectHost('LAPTOP-7UTNLTAQ')">LAPTOP-7UTNLTAQ</button></li>
 </ul>
@@ -120,54 +157,127 @@
 </div>
 
 <script>
-let socket = new WebSocket("ws://127.0.0.1:8000/ws/host-monitor/");
+let socket = null;
 let selectedHost = null;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 5;
 
-socket.onopen = () => console.log("WebSocket connected");
+function connectWebSocket() {
+    const statusEl = document.getElementById('connection-status');
+    statusEl.textContent = 'Connecting...';
+    statusEl.className = 'status connecting';
 
-socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if(data.error){
-        alert(data.error);
-        return;
-    }
+    socket = new WebSocket("ws://127.0.0.1:8000/ws/host-monitor/");
 
-    // Update System Info dynamically
-    if(data.system_info){
-        const si = data.system_info;
-        document.getElementById('system-info').innerHTML = `
-            <tr><td>OS</td><td>${si.os_name}</td></tr>
-            <tr><td>Processor</td><td>${si.processor}</td></tr>
-            <tr><td>Cores/Threads</td><td>${si.num_cores}/${si.num_threads}</td></tr>
-            <tr><td>RAM</td><td>${si.ram_used_gb}/${si.ram_total_gb} GB</td></tr>
-            <tr><td>Storage</td><td>${si.storage_used_gb}/${si.storage_total_gb} GB</td></tr>
+    socket.onopen = () => {
+        console.log("WebSocket connected");
+        statusEl.textContent = 'Connected';
+        statusEl.className = 'status connected';
+        reconnectAttempts = 0;
+        
+        // If we had a selected host, reselect it
+        if (selectedHost) {
+            sendHostSelection(selectedHost);
+        }
+    };
+
+    socket.onclose = (event) => {
+        console.log("WebSocket closed:", event.code, event.reason);
+        statusEl.textContent = 'Disconnected';
+        statusEl.className = 'status disconnected';
+        
+        // Attempt to reconnect
+        if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            console.log(`Reconnecting... Attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+            setTimeout(connectWebSocket, 3000 * reconnectAttempts); // Exponential backoff
+        }
+    };
+
+    socket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        statusEl.textContent = 'Error';
+        statusEl.className = 'status disconnected';
+    };
+
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if(data.error){
+            alert(data.error);
+            return;
+        }
+
+        // Update last update time
+        const lastUpdateEl = document.getElementById('last-update');
+        lastUpdateEl.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+
+        // Update System Info dynamically
+        if(data.system_info){
+            updateSystemInfo(data.system_info);
+        }
+
+        // Update Processes dynamically
+        if(data.processes){
+            updateProcesses(data.processes);
+        }
+    };
+}
+
+function updateSystemInfo(si) {
+    const systemInfoEl = document.getElementById('system-info');
+    if (si.error) {
+        systemInfoEl.innerHTML = `<tr><td colspan="2">Error: ${si.error}</td></tr>`;
+    } else {
+        systemInfoEl.innerHTML = `
+            <tr><td>OS</td><td>${si.os_name || 'N/A'}</td></tr>
+            <tr><td>Processor</td><td>${si.processor || 'N/A'}</td></tr>
+            <tr><td>Cores/Threads</td><td>${si.num_cores || 'N/A'}/${si.num_threads || 'N/A'}</td></tr>
+            <tr><td>RAM</td><td>${si.ram_used_gb || 'N/A'}/${si.ram_total_gb || 'N/A'} GB</td></tr>
+            <tr><td>Storage</td><td>${si.storage_used_gb || 'N/A'}/${si.storage_total_gb || 'N/A'} GB</td></tr>
         `;
     }
+}
 
-    // Update Processes dynamically
-    if(data.processes){
-        const tbody = document.getElementById('processes');
-        tbody.innerHTML = "";
-        data.processes.forEach(proc => {
-            const pid = proc.pid;
-            const rowId = `proc-${pid}`;
+function updateProcesses(processes) {
+    const tbody = document.getElementById('processes');
+    tbody.innerHTML = "";
+    
+    if (processes.length === 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="5">No processes available</td>`;
+        tbody.appendChild(tr);
+        return;
+    }
+    
+    processes.forEach(proc => {
+        const pid = proc.pid;
+        const rowId = `proc-${pid}`;
 
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td class="expand-btn" onclick="toggleSubprocess('${rowId}')">&#9654;</td>
-                <td>${pid}</td>
-                <td>${proc.name}</td>
-                <td>${proc.cpu_percent}%</td>
-                <td>${proc.memory_mb}</td>
-            `;
-            tbody.appendChild(tr);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td class="expand-btn" onclick="toggleSubprocess('${rowId}')">&#9654;</td>
+            <td>${pid}</td>
+            <td>${proc.name || 'N/A'}</td>
+            <td>${proc.cpu_percent || '0'}%</td>
+            <td>${proc.memory_mb || '0'}</td>
+        `;
+        tbody.appendChild(tr);
 
-            const subTr = document.createElement("tr");
-            subTr.id = rowId;
-            subTr.className = "subprocess-row";
-            subTr.innerHTML = `<td colspan="5">No subprocesses available</td>`;
-            tbody.appendChild(subTr);
-        });
+        const subTr = document.createElement("tr");
+        subTr.id = rowId;
+        subTr.className = "subprocess-row";
+        subTr.innerHTML = `<td colspan="5">No subprocesses available</td>`;
+        tbody.appendChild(subTr);
+    });
+}
+
+function sendHostSelection(hostname) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({"hostname": hostname}));
+        console.log("Sent hostname:", hostname);
+    } else {
+        console.log("WebSocket not ready, cannot send hostname");
     }
 }
 
@@ -190,10 +300,23 @@ function toggleSubprocess(rowId){
 // Select a host and show control buttons
 function selectHost(hostname){
     selectedHost = hostname;
+    
+    // Update UI to show selected host
+    const buttons = document.querySelectorAll('#hosts-list button');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
     document.getElementById('host-controls').classList.remove('hidden');
-    socket.send(JSON.stringify({"hostname": hostname}));
+    
+    // Send hostname to backend (only once - backend handles the updates)
+    sendHostSelection(hostname);
 }
+
+// Initialize WebSocket connection when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    connectWebSocket();
+});
 </script>
 
 </body>
-</html>
+</html> 
