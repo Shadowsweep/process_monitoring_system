@@ -1,0 +1,44 @@
+<h2>Host Monitor</h2>
+<ul id="hosts-list">
+    <!-- Populate dynamically from API or Django template -->
+    <li><button onclick="viewHost('LAPTOP-7UTNLTAQ')">LAPTOP-7UTNLTAQ</button></li>
+</ul>
+
+<h3>System Info</h3>
+<div id="system-info"></div>
+
+<h3>Processes</h3>
+<div id="processes"></div>
+
+<script>
+let socket = new WebSocket("ws://127.0.0.1:8000/ws/host-monitor/");
+
+socket.onopen = () => console.log("WebSocket connected");
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if(data.error){
+        alert(data.error);
+        return;
+    }
+    if(data.system_info){
+        let si = data.system_info;
+        document.getElementById('system-info').innerHTML = `
+            OS: ${si.os_name} <br>
+            Processor: ${si.processor} <br>
+            Cores/Threads: ${si.num_cores}/${si.num_threads} <br>
+            RAM: ${si.ram_used_gb}/${si.ram_total_gb} GB <br>
+            Storage: ${si.storage_used_gb}/${si.storage_total_gb} GB
+        `;
+    }
+    if(data.processes){
+        let procs = data.processes.map(p => `
+            PID: ${p.pid}, Name: ${p.name}, CPU: ${p.cpu_percent}%, Memory: ${p.memory_mb}MB
+        `).join('<br>');
+        document.getElementById('processes').innerHTML = procs;
+    }
+}
+
+function viewHost(hostname){
+    socket.send(JSON.stringify({"hostname": hostname}));
+}
+</script>

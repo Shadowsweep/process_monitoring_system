@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WebSocket Test</title>
+</head>
+<body>
+<h2>Process Monitor WebSocket Test</h2>
+<div id="output"></div>
+
+<script>
+    const ws = new WebSocket("ws://127.0.0.1:8000/ws/processes/");
+
+    ws.onopen = () => {
+        console.log("WebSocket connected");
+        document.getElementById('output').innerHTML += "<p>Connected to server.</p>";
+    };
+
+    ws.onmessage = (event) => {
+        console.log("Message received:", event.data);
+        document.getElementById('output').innerHTML += `<p>${event.data}</p>`;
+    };
+
+    ws.onclose = () => {
+        console.log("WebSocket closed");
+        document.getElementById('output').innerHTML += "<p>Connection closed.</p>";
+    };
+
+    ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        document.getElementById('output').innerHTML += `<p style="color:red;">Error: ${error}</p>`;
+    };
+</script>
+</body>
+</html>
