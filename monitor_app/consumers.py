@@ -1,4 +1,5 @@
 # # consumers.py
+""" This module contains the WebSocket consumer for monitoring hosts."""
 import json
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer

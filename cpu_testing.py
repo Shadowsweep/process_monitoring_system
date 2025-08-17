@@ -1,3 +1,6 @@
+""" this script monitors CPU usage of processes on the system and outputs
+the top CPU-consuming processes ,more accurately waiting for 1-3 sec. """
+
 import psutil
 import time
 from datetime import datetime

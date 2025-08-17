@@ -71,28 +71,6 @@ class ProcessDataAgentView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# class LatestDataFrontendView(APIView):
-#     """
-#     API endpoint to get latest processes + system info for a given host.
-#     """
-#     def get(self, request, hostname, *args, **kwargs):
-#         try:
-#             host = Host.objects.get(hostname=hostname)
-#             system_info = SystemInfo.objects.get(host=host)
-#         except (Host.DoesNotExist, SystemInfo.DoesNotExist):
-#             return Response({"detail": "Host or system info not found."}, status=status.HTTP_404_NOT_FOUND)
-
-#         processes = Process.objects.filter(host=host).order_by('pid')
-#         processes_serializer = ProcessSerializer(processes, many=True)
-#         system_info_serializer = SystemInfoSerializer(system_info)
-
-#         return Response({
-#             "hostname": host.hostname,
-#             "last_seen": host.last_seen,
-#             "system_info": system_info_serializer.data,
-#             "processes": processes_serializer.data
-#         }, status=status.HTTP_200_OK)
-
 class LatestProcessDataFrontendView(APIView):
     """
     Returns the latest process data for a given host.
@@ -158,29 +136,14 @@ class ProcessMonitorView(TemplateView):
     """
     template_name = 'monitor_app/process_monitor.html'
     
-
-
-    
-
 def ApiView(request):
+    """ API view to see all the Api's and their endpoints """
     return render(request, "monitor_app/dashboard.html")
 
-    # Save to DB if needed ...
-
-    # Send to WebSocket
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "process_group",  # broadcast group
-        {
-            "type": "send_process_data",
-            "data": data
-        }
-    )
-
-    return JsonResponse({"status": "success"})
-
 def sockets_test(request):
+    """ Render the sockets test page to check if the sockets are working """
     return render(request, "sockets_test.html")
 
 def host_monitor_view(request):
+    """ Render the host monitor page for our Sockets """
     return render(request, "host_monitor.html")

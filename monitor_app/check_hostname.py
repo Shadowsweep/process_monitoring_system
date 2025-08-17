@@ -1,3 +1,4 @@
+""" This script retrieves the current machine's hostname and generates a secure API key."""
 import socket
 import secrets
 

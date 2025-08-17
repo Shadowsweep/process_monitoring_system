@@ -2,6 +2,7 @@ from process_monitor.asgi import sio  # import the server
 import psutil
 import asyncio
 
+""" WebSocket consumer for real-time process monitoring. """
 @sio.event
 async def connect(sid, environ):
     print("Client connected:", sid)

@@ -1,3 +1,4 @@
+''' this script tests the API key functionality by sending a POST request to the backend endpoint with a sample payload. '''
 import requests
 import socket
 import json
