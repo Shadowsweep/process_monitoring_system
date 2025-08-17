@@ -159,9 +159,11 @@ class ProcessMonitorView(TemplateView):
     template_name = 'monitor_app/process_monitor.html'
     
 
-def process_data_view(request):
-    # assume JSON with hostname, timestamp, processes
-    data = json.loads(request.body)
+
+    
+
+def ApiView(request):
+    return render(request, "monitor_app/dashboard.html")
 
     # Save to DB if needed ...
 
